@@ -2,11 +2,6 @@ pipeline {
 
     agent any
 
-    tools {
-        jdk 'JDK17'
-        maven 'Maven3'
-    }
-
     environment {
         APP_NAME = 'online-banking'
         APP_PORT = '8080'
@@ -21,7 +16,7 @@ pipeline {
             }
         }
 
-        stage('Verify Environment') {
+        stage('Check Java and Maven') {
             steps {
                 sh '''
                     echo "Java version:"
@@ -50,7 +45,8 @@ pipeline {
 
             post {
                 always {
-                    junit 'backend/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true,
+                          testResults: 'target/surefire-reports/*.xml'
                 }
             }
         }
@@ -78,19 +74,20 @@ pipeline {
 
                     for i in {1..30}; do
 
-                        if curl -s http://localhost:${APP_PORT}/api/account > /dev/null
+                        if curl -f -s http://localhost:${APP_PORT}/api/account > /dev/null
                         then
                             echo "Application is UP"
                             exit 0
                         fi
 
-                        echo "Waiting..."
+                        echo "Waiting for application..."
                         sleep 2
 
                     done
 
                     echo "Application failed to start"
 
+                    echo "===== APPLICATION LOG ====="
                     cat application.log
 
                     exit 1
@@ -104,7 +101,7 @@ pipeline {
 
                     if (fileExists('automation/pom.xml')) {
 
-                        echo 'Running Selenium browser tests...'
+                        echo 'Running Selenium tests...'
 
                         dir('automation') {
                             sh 'mvn clean test'
@@ -112,8 +109,8 @@ pipeline {
 
                     } else {
 
-                        echo 'Automation project not found.'
-                        echo 'Skipping Selenium tests for now.'
+                        echo 'automation/pom.xml not found.'
+                        echo 'Skipping browser tests.'
 
                     }
                 }
@@ -136,9 +133,7 @@ pipeline {
 
             sh '''
                 if [ -f application.pid ]; then
-
                     kill $(cat application.pid) || true
-
                 fi
             '''
 
